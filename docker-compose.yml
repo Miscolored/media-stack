@@ -51,6 +51,27 @@ services:
       - DOCKER_MODS=ghcr.io/gilbn/theme.park:bazarr
       - TP_THEME=${TP_THEME:?err}
 
+
+###########################################################################
+###########################################################################
+##
+##    Docker Compose File: ByParr
+##    Function: Anti-bot challenge solver
+##
+##    Documentation: https://github.com/ThePhaseless/Byparr
+##
+###########################################################################
+###########################################################################
+
+  byparr:
+    image: ghcr.io/thephaseless/byparr:latest
+    container_name: byparr
+    restart: unless-stopped
+
+    ports:
+      - "${BYPARR_PORT:?err}:8191"
+
+
 ###########################################################################
 ###########################################################################
 ##
@@ -102,28 +123,6 @@ services:
 ###########################################################################
 ###########################################################################
 ##
-##  Docker Compose File: Flaresolverr (Flaresolverr)
-##  Function: Cloudflare Proxy Server
-##
-##  Documentation: https://github.com/FlareSolverr/FlareSolverr
-##
-###########################################################################
-###########################################################################
-  flaresolverr:
-    image: ghcr.io/flaresolverr/flaresolverr:latest
-    container_name: flaresolverr
-    restart: unless-stopped
-    ports:
-      - "${FLARESOLVERR_PORT:?err}:8191"
-    environment:
-      - LOG_LEVEL=info
-      - LOG_HTML=false
-      - CAPTCHA_SOLVER=none
-      - TZ=${TIMEZONE:?err}
-
-###########################################################################
-###########################################################################
-##
 ##    Docker Compose File: Heimdall (LinuxServer.io)
 ##    Function: Organise links to web sites and web applications
 ##
@@ -159,16 +158,16 @@ services:
     image: lscr.io/linuxserver/jackett:latest
     container_name: jackett
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-      - AUTO_UPDATE=true #optional
-      - RUN_OPTS= #optional
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - TZ=${TIMEZONE:?err} 
+      - AUTO_UPDATE=true
+      - RUN_OPTS=
     volumes:
-      - ${FOLDER_FOR_CONFIGS:?err}/jackett:/config
+      - ${FOLDER_FOR_CONFIGS:?err}:/config
       - ${FOLDER_FOR_MEDIA:?err}/blackhole:/downloads
     ports:
-      - 9117:9117
+      - ${WEBUI_PORT_JACKETT:?err}:9117
     restart: unless-stopped
 
 ###########################################################################
@@ -263,7 +262,7 @@ services:
     container_name: qbittorrent
     restart: unless-stopped
     volumes:
-      - ${FOLDER_FOR_CONFIGS:?err}/qbittorrent:/config
+      - ${FOLDER_FOR_CONFIGS:?err}:/config
       - ${FOLDER_FOR_MEDIA:?err}:/data
     environment:
       - PUID=${PUID:?err}
@@ -305,6 +304,29 @@ services:
       - DOCKER_MODS=ghcr.io/gilbn/theme.park:radarr
       - TP_THEME=${TP_THEME:?err}      
 
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Readarr
+##  Function: Fork of Readarr for ebooks and audiobooks
+##
+##  Documentation: https://github.com/pennydreadful/bookshelf
+##
+###########################################################################
+###########################################################################
+  readarr:
+    image: ghcr.io/pennydreadful/bookshelf:hardcover
+    container_name: readarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - ${FOLDER_FOR_CONFIGS:?err}/readarr:/config
+      - ${FOLDER_FOR_MEDIA:?err}:/books
+    ports:
+      - "${WEBUI_PORT_BOOKSHELF:?err}:8787"
+    restart: unless-stopped
 
 
 ###########################################################################
