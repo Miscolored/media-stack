@@ -1,7 +1,11 @@
-# TODOs
-- does watchtower this need to go into the media-stack to be effective?
-- configure apps programatically
-- Terraform and ansible?
+# _MEDIA-STACK_
+A guide and supporting files to make deploying a reliable media stack easy and repeatable. 
+---
+__Contributing__
+
+Issues/PRs are welcome, but do not think of this repo as "maintained", it's just here for the benefit of those that find it.
+
+---
 
 # Guide Usage
 Search for `update` -- apart from the container named `ddns-u***ter`, every instace of 'that word' should jump you to a place you need to modify for your network.
@@ -56,33 +60,33 @@ chmod 600 /etc/smb_credential_media
 ```sh
 export SMB_PATH="//tnas.arrs/media"
 export FOLDER_FOR_MEDIA="/mnt/tnas_media"
+export PUID=$(id -u)
+export PGID=$(id -g)
 
-echo $SMB_PATH $FOLDER_FOR_MEDIA cifs credentials=/etc/smb_credential_media,uid=$(id -u),gid=$(id -g),iocharset=utf8 0 0 | sudo tee -a /etc/fstab
+echo $SMB_PATH $FOLDER_FOR_MEDIA cifs credentials=/etc/smb_credential_media,uid=$PUID$,gid=$PGID,iocharset=utf8 0 0 | sudo tee -a /etc/fstab
 ```
 
 _Ensure the uid and gid fields are not `0`, as this would indicate you ran the command with the `root` user. You must run the command with `arrs` user._
 
 ## Create application and media folders:
 
-You should not need to modify anything in this script block. You may modify the categories and app types, particularly to add categories and apps. See not in following section regarding `FOLDER_FOR_CONFIGS` before changing it.
+You should not need to modify anything in this script block. You may modify the categories and app types, particularly to add categories and apps. _If you change `FOLDER_FOR_INCOMPLETE`, you must change `FOLDER_FOR_INCOMPLETE` in `media-stack.env`._ See note in following section regarding `FOLDER_FOR_CONFIGS` before changing it.
 
 ```sh
 export FOLDER_FOR_CONFIGS=/opt/media-stack
 export FOLDER_FOR_ARCHIVE=$FOLDER_FOR_MEDIA/apps/docker
+export FOLDER_FOR_INCOMPLETE=/incomplete
 
-export PUID=$(id -u)
-export PGID=$(id -g)
-
-
+sudo -E mkdir -p $FOLDER_FOR_INCOMPLETE/{torrent,usenet}
 sudo -E mkdir -p $FOLDER_FOR_ARCHIVE
 sudo -E mkdir -p $FOLDER_FOR_CONFIGS/{authelia/assets,bazarr,ddns-updater,heimdall,homarr/{configs,data,icons},homepage,jellyfin,jellyseerr,lidarr,mylar,portainer,prowlarr,qbittorrent,radarr,sabnzbd,sonarr,tdarr/{server,configs,logs},tdarr_transcode_cache}
 sudo -E mkdir -p $FOLDER_FOR_MEDIA/{anime,audio,book,comic,movie,music,photos,tv}
-sudo -E mkdir -p $FOLDER_FOR_MEDIA/usenet/{anime,audio,book,comics,complete,console,incomplete,movies,music,prowlarr,software,tv}
-sudo -E mkdir -p $FOLDER_FOR_MEDIA/torrents/{anime,audio,books,comics,complete,console,incomplete,movies,music,prowlarr,software,tv}
+sudo -E mkdir -p $FOLDER_FOR_MEDIA/usenet/{anime,audio,book,comics,complete,console,movies,music,prowlarr,software,tv}
+sudo -E mkdir -p $FOLDER_FOR_MEDIA/torrents/{anime,audio,books,comics,complete,console,movies,music,prowlarr,software,tv}
 sudo -E mkdir -p $FOLDER_FOR_MEDIA/watch
 sudo -E mkdir -p $FOLDER_FOR_MEDIA/filebot/{input,output}
-sudo -E chmod -R 775 $FOLDER_FOR_MEDIA $FOLDER_FOR_CONFIGS
-sudo -E chown -R $PUID:$PGID $FOLDER_FOR_MEDIA $FOLDER_FOR_CONFIGS
+sudo -E chmod -R 775 $FOLDER_FOR_MEDIA $FOLDER_FOR_CONFIGS $FOLDER_FOR_INCOMPLETE
+sudo -E chown -R $PUID:$PGID $FOLDER_FOR_MEDIA $FOLDER_FOR_CONFIGS $FOLDER_FOR_INCOMPLETE
 ```
 
 
@@ -147,7 +151,39 @@ Create a new Stack in Portainer where all the capability apps will run.
 1. `Deploy the stack`
 1. Once deployed, the initial admin password for each app from the container logs.
 
+### Configure [Homarr](http://arrs.magic:7575)
+This will make navigation to each of the apps so much easier.
+1. Create user and turn off all their analytics and telemetry.
+1. Create a board, give it a name
+1. Enter edit mode (pencil icon in top right)
+1. Add each app
+    1. Click __+__ → Add an app → Open app creation
+    1. Name (see table)
+    1. Icon - will be automatically populated based on app name.
+    1. Url (see table)
+    1. Create and use
+
+|Name|Url|
+|-|-|
+|Bazarr|http://arrs.magic:6767|
+|ByParr|http://arrs.magic:8191|
+|Jackett|http://arrs.magic:9117|
+|Lidarr|http://arrs.magic:8686|
+|Mylar|http://arrs.magic:8090|
+|Portainer|http://arrs.magic:9443|
+|Prowlarr|http://arrs.magic:9696|
+|Radarr|http://arrs.magic:7878|
+|Readerr|http://arrs.magic:8787|
+|SABnzbd|http://arrs.magic:8100|
+|Sonarr|http://arrs.magic:8989|
+|qBittorent|http://arrs.magic:8200|
+
+1. Save changes (clicking pencil icon in top right again)
+
 ### Configure [Jackett](http://arrs.magic:9117)
+Index helper for other servers.
+
+
 1. Note the api key in the top right, this will be used in following steps
 1. Admin password
 1. FlareSolverr API Url: http://arrs.magic:8191 # This is for CAPTCHA bypass.
@@ -156,27 +192,11 @@ Create a new Stack in Portainer where all the capability apps will run.
 1. See instructions provided in Jackett UI for how to add indexers to other apps -- this guide uses Prowlarr instead of Sonarr/Radarr, but instructions are the same.
 
 ### Configure [qBittorrent](http://arrs.magic:8200)
-Based on https://mediastack.guide/config/qbittorrent
+Torrent download client.
 
-Remember to `Save` before leaving options.
-
-1. Options/Behavior: Check "Show external IP in status bar:
-1. Options/Downloads: Management Mode Auto, Default Paths: /data/torrents/{complete,incomplete}, monitor /data/watch
-1. Options/WebUI/Authentication
-1. Bypass for 172.18.0.0/16, 192.168.6.0/28
-
-__Update__ the bypass network to your `media-stack_default` (observed in Portainer → Networks) and VPN VLAN, respectively.
-1. Options/BitTorrent:Seeding check when ratio reaches 1 then Stop torrent
-1. Open the Search Tab (top right button) → Search plugins...(bottom right) → Install new plugin: Path=https://raw.githubusercontent.com/qbittorrent/search-plugins/master/nova3/engines/jackett.py
-1. Configure Jackett plugin with Portainer shell in qbittorrent container.
-   1. api_key= (from Jackett web ui), url= "http://arrs.magic:9117"
-API key also available at `cat /config/jackett/Jackett/ServerConfig.json | jq .APIKey`
-```sh
-vi /config/qBittorrent/nova3/engines/jackett.json
-```
-
-
-1. Create Categories with with Portainer shell in qbittorrent container
+1. Open Portainer shell in qbittorrent container
+   1. `mkdir /incomplete && chmod 777 /incomplete`
+   1. Create Categories
 ```sh
 cat << EOF > /config/qBittorrent/categories.json
 {
@@ -216,30 +236,55 @@ cat << EOF > /config/qBittorrent/categories.json
 }
 EOF
 ```
+  3. Configure Jackett plugin with Portainer shell in qbittorrent container.
+     1. api_key= (from Jackett web ui), url= "http://arrs.magic:9117"
+API key also available at `cat /config/jackett/Jackett/ServerConfig.json | jq .APIKey`
+```sh
+vi /config/qBittorrent/nova3/engines/jackett.json
+```
+_Remember to `Save` before leaving options._
+1. Options → Behavior: Check "Show external IP in status bar:
+1. Options → Downloads
+   1. Default Torrent Management Mode: Automatic
+   1. Default Save Path: Paths: /data/torrents/complete
+   1. Keep incomplete torrents in: true, /incomplete
+   1. Monitored Folder: /data/watch, Default save location
+1. Options → WebUI → Authentication: Bypass for 172.18.0.0/16, 192.168.6.0/28
+
+__Update__ the bypass network to your `media-stack_default` (observed in Portainer → Networks) and VPN VLAN, respectively.
+
+4. Options/BitTorrent:Seeding check when ratio reaches 1 then Stop torrent
+1. Open the Search Tab (top right button) → Search plugins...(bottom right) → Install new plugin: Path=https://raw.githubusercontent.com/qbittorrent/search-plugins/master/nova3/engines/jackett.py
+
+
 
 ### Configure [Sabnzbd](http://arrs.magic:8100)
-Based on https://mediastack.guide/config/sabnzbd/
+Usenet download client.
 
 Be sure to hit `Save Changes`
 1. General → Security
    1. username:password
    1. External internal access = Full API
    1. API Key - note this, it will be given to other apps for configuration.
-1. Folders
-   1. Temporary Folder = /data/usenet/incomplete
-   1. Completed Folder = /data/usenet/complete
-   1. Watched Folder = /data/watch
-1. Server:
-   1. Add your usenet __Providers__ - these are typically paid for (<$20/yr)
-1. Categories
-   1. For each of the categories (i.e. anime, movies, etc.), create a row with `Category={CAT_NAME}` and `folderPath=/data/usenet/{CAT_NAME}`
-1. RSS - add if you have RSS feeds.
-1. Modify /config/sabnzbd.ini using Portainer shell on sabnzbd container,
+1. Open Portainer shell on sabnzbd container,
+   1. `mkdir /incomplete && chmod 777 /incomplete`
+   1. Modify /config/sabnzbd.ini
 ```ini
 host_whitelist = localhost, dockerhost, arrs.magic
 local_ranges = 172.18.0.0/16, 192.168.6.0/28
 ```
 __Update__ `local_ranges` to match your `media-stack_default` and VPN VLAN, respectively.
+
+3. Folders
+   1. Temporary Folder = /incomplete
+   1. Completed Folder = /data/usenet/complete
+   1. Watched Folder = /data/watch
+   1. Save Changes
+1. Server:
+   1. Add your usenet __Providers__ - these are typically paid for (<$20/yr)
+1. Categories
+   1. For each of the categories (i.e. anime, movies, etc.), create a row with `Category={CAT_NAME}` and `folderPath=/data/usenet/{CAT_NAME}`
+1. RSS - add if you have RSS feeds.
 
 
 1. Configure a usenet server: bring your own provider 
@@ -248,8 +293,39 @@ __Update__ `local_ranges` to match your `media-stack_default` and VPN VLAN, resp
    1. FolderPath: /data/usenet/{category}
    1. Save
 
+### Configure [Mylar](http://arrs.magic:8090)
+1. Settings → Web Interface → API: Optional (recommended) create a free account at [ComicVine](https://comicvine.gamespot.com/api/) and grab an API Key to add to this page.
+1. Settings → Web Interface → Tick "Enable API" → Generate Mylar API Key
+1. Settings → Web Interface → Comic Location → Comic Location Path: `/data/comic`
+1. Settings → Web Interface → Permissions
+   1. Enforce Permisions: yes
+   1. Directory CHMOD: 0775
+1. Settings → Download settings → Usenet
+   1. Sabnzbd selected
+   1. Sabnzbd Host: http://arrs.magic:8100
+   1. Sabnzbd: user/password/API
+   1. Sanbzbd Category: comics
+   1. Are Mylar / SABnzbd on separate machines: true
+   1. Sabnzbd Download Directory: /data/usenet/comics
+   1. Test SABnzbd
+1. Settings → Download settings → Torrents
+   1. Use Torrents: true
+   1. qBittorrent
+   1. qBittorrent Host:Port : http://arrs.magic:8200
+   1. username/password
+   1. qBittorrent Label: comics
+   1. qBittorrent Folder: /data/torrents/comics
+   1. Test Connection
+1. Settings → Search Providers → Tick "Use Newznab" → Tick "Torrents" → Tick "Enable Torznab"
+1. Settings → Quality & Post Processing → Post Processing
+   1. Enable Post-Processing: true, move
+   1. Enable Folder Monitoring: true, `/data/watch`, 5 mins
+1. Save Changes
+
 
 ### Configure [Prowlarr](http://arrs.magic:9696)
+Index helper for other servers.
+
 
 Prowlarr and Jackett do much of the same thing. They are both included because why not. If you have a preference, you can remove the service from the stack.
 
@@ -258,73 +334,185 @@ Prowlarr and Jackett do much of the same thing. They are both included because w
    1. Hit test to see if ByParr is able to crack the CAPTCHA.
    1. Add the Indexers from Jackett following instructions on [Jacket web ui](http://arrs.magic:9117), add the `flaresolverr` tag.
    1. Add additional indexers
-1. Settings → Download Clients
-   1. qBittorrent- host: arrs.magic, port: 8200, username/password (per qBittorrent Options/WebUI/Authentication), add mapped categories per: [this guide](https://mediastack.guide/config/prowlarr/#add-torrent-downloader) (note anime and comics are the standouts)
-   1. Sabnzbd - host: arrs.magic, port: 8100, api key & username/password (per Sabnzbd General → Security), add mapped categories as above.
-1. Apps → Add "commmon" apps (Radarr, Sonarr, Lidarr, Readarr-aka Bookshelf)
-   1. Prowlarr Server: http://arrs.magic:9696
-   1. API found at /config/config.xml of corresponding container
-   1. Server: all use same host (http://arrs.magic, with respective ports: 7878, 8989, 8686, 8787)
-1. Apps → Add Mylar
-   1. Open [Mylar](http://arrs.magic:8090/config) then Web Interface → Tick "Enable API" → Generate Mylar API Key
-   1. Optionally (recommended) create a free account at [ComicVine](https://comicvine.gamespot.com/api/) and grab an API Key to add to this page.
-   1. Save Changes
-   1. Search Providers → Tick "Use Newznab" → Tick "Torrents" → Tick "Enable Torznab" → Save Changes
-   1. Restart Mylar (top of page)
-   1. Add Mylar just like the other apps.
-1. Apps → Test All Apps
-1. Apps → Sync App Indexers
+1. Settings → Apps → Add Apps, per following table
+
+|Name | Sync Level | Prowlarr Server | App Server | API Key (location in App) | Sync Categories | Other | 
+|---|---|---|---|---|---|--|
+|Lidar | Full Sync | http://arrs.magic:9696 | http://arrs.magic:8686 | Settings → General → Security | Books/Comics (only one check) |  |
+|Mylar | Full Sync | http://arrs.magic:9696 | http://arrs.magic:8090 | Settings → Web Interface →  API | Audio (except Audio/Vidio) | Sync Reject Blocklisted Torrent |
+|Radarr | Full Sync | http://arrs.magic:9696 | http://arrs.magic:7878 | Settings → General → Security | All Movies | Sync Reject Blocklisted Torrent |
+|Readarr | Full Sync | http://arrs.magic:9696 | http://arrs.magic:8787 | Settings → General → Security | Audio/Audiobook, Books (except Books/Comics) | Sync Reject Blocklisted Torrent |
+|Sonarr | Full Sync | http://arrs.magic:9696 | http://arrs.magic:8989 | Settings → General → Security | All TV (except Anime) [Anime: TV/Anime] | Snyc Anime Standard, Sync Reject Blocklisted Torrent |
+
+4. Settings → Apps → Test All Apps
+1. Settings → Apps → Sync App Indexers
 
 
-## Configure ARRs servers
+## Configure Download client on the ARRs servers
 ### Add download clients
 For some reason, the download clients _are not_ synced from prowlarr to the arr servers...
+
+1. [Prowlarr](http://arrs.magic:9696) → Settings → Download Clients
+   1. qBittorrent- host: arrs.magic, port: 8200, username/password (per qBittorrent Options/WebUI/Authentication), add mapped categories per: [this guide](https://mediastack.guide/config/prowlarr/#add-torrent-downloader) (note anime and comics are the standouts)
+   1. Sabnzbd - host: arrs.magic, port: 8100, api key & username/password (per Sabnzbd General → Security), add mapped categories as above.
+
+
 1. [Lidarr](http://arrs.magic:8686), [Radarr](http://arrs.magic:7878), [Readarr](http://arrs.magic:8787), [Sonarr](http://arrs.magic:8989)
    1. Copy steps for adding download clients to Prowlarr. Pay attention to the default Category each app provides, they should be: music, movies, books, tv; respectively.
-1. [Mylar](http://arrs.magic:8090)
-   1. Settings → Download settings → Usenet
-      1. Sabnzbd selected
-      1. Sabnzbd Host: http://arrs.magic:8100
-      1. Sabnzbd: user/password/API
-      1. Sanbzbd Category: comics
-      1. Are Mylar / SABnzbd on separate machines: true
-      1. Sabnzbd Download Directory: /data/usenet/comics
-      1. Test SABnzbd
-   1. Settings → Download settings → Torrents
-      1. Use Torrents: true
-      1. qBittorrent
-      1. qBittorrent Host:Port : http://arrs.magic:8200
-      1. username/password
-      1. qBittorrent Label: comics
-      1. qBittorrent Folder: /data/torrents/comics
-      1. Test Connection
-   1. Save Changes
-   1. Restart (top of page)
 
-## App-specific Configuration
+
+## Other Servers Configuration
 
 ### Configure [Radarr](http://arrs.magic:7878)
+Movie library management.
+
 1. Settings → Metadata → Kodi (XBMC): Enable, Movie Metadata, Movie Images, Save
 1. Settings → Metadata → Roksbox: Enable, Movie Metadata, Movie Images, Save
 1. Settings → Metadata → WDTV: Enable, Movie Metadata, Movie Images, Save
-1. Settings → Media Management (formats per [this guide](https://jellyfin.org/docs/general/server/media/movies/))
-   1. Show Advanced (top)
-   1. Rename Movies: true
-   1. Replace Illegal Characters: true
-   1. Colon Replacement:	Replace with Dash
-   1. Standard Movie Format:	`{Movie CleanTitle} {(Release Year)} {imdbid-{ImdbId}} - {edition-{Edition Tags}} {[Custom Formats]}{[Quality Full]}{[MediaInfo 3D]}{[MediaInfo VideoDynamicRangeType]}{[Mediainfo AudioCodec}{ Mediainfo AudioChannels}]{MediaInfo AudioLanguages}[{Mediainfo VideoCodec}]{-Release Group}`
-   1. Movie Folder Format:	`{Movie CleanTitle} {(Release Year)} - [imdbid-{ImdbId}]`
-   1. Delete empty folders: true
-   1. Save Changes (top)
+1. Settings → Media Management: See [Common Settings for Apps](#common-settings-for-apps) and [Application File Naming](#application-file-naming)
+1. Settings → Media Management → Add Root Folder: `/data/movie`
 
 Time to import existing movies...
-1. Movies → Import Existing Movies → Start Import: `/data/movie`
 
 ### Configure [Sonarr](https://arrs.magic:8989)
+Television series library management.
 
-[ ] Setup Dispatcharr https://dispatcharr.github.io/Dispatcharr-Docs/
-[] Setup Jellyfin
-[] Setup Jellyseer
+1. Settings → Metadata → Kodi (XBMC): Enable, Series Metadata, Series Images, Season Images, Episode Images
+1. Settings → Metadata → Roksbox: Enable, Save
+1. Settings → Metadata → WDTV: Enable, Save
+1. Settings → Media Management: See [Common Settings for Apps](#common-settings-for-apps) and [Application File Naming](#application-file-naming)
+1. Settings → Media Management → Add Root Folder: `/data/tv`
+
+  Time to import existing series...
+
+### Configure [Lidarr](http://arrs.magic:8686)
+Music library management.
+
+1. Settings → Media Management: See [Common Settings for Apps](#common-settings-for-apps) and [Application File Naming](#application-file-naming)
+1. Settings → Media Management → Add Root Folder
+   1. Name: library
+   1. Path: `/data/music`
+   1. Monitor: None
+   1. Monitor New Albums: No New Albums
+   1. Quality Profile: Any
+   1. Metadata Profile: Standard
+   1. Save
+
+  Time to import existing tunes...   
+
+### Configure [Readarr](http://arrs.magic:8787)
+Book and Audiobook library management.
+
+1. Settings → Media Management: See [Common Settings for Apps](#common-settings-for-apps) and [Application File Naming](#application-file-naming)
+1. Settings → Media Management → Add Root Folder
+   1. Name: library
+   1. Path: `/books`
+   1. Monitor: All Books
+   1. Monitor New Books: All Books
+   1. Quality Profile: eBook
+   1. Metadata Profile: Standard
+   1. Default Readarr Tags:
+   1. Use Calibre Content Server: false
+
+  Time to import existing books...
+
+### Configure [Bazarr](http://arrs.magic:6767)
+Subtitles for Movies and TV.
+1. Settings → Sonarr: Enabled
+   1. Address: `arrs.magic`
+   1. Port: `8989`
+   1. API Key: from [here](http://arrs.magic:8989/settings/general)
+   1. Test - version will be displayed if passing
+   1. Save - required to enable further options
+   1. Download Only Monitored: true
+   1. Path Mappings:
+      1. Sonarr: `/data/`
+      1. Bazarr `/data/`
+   1. Save
+1. Settings → Radarr: Enabled
+   1. Address: `arrs.magic`
+   1. Port: `7878`
+   1. API Key: from [here](http://arrs.magic:7878/settings/general)
+   1. Test - version will be displayed if passing
+   1. Save - required to enable further options
+   1. Download Only Monitored: true
+   1. Path Mappings:
+      1. Radarr: `/data/`
+      1. Bazarr `/data/`
+   1. Save
+
+### Configure [Seerr](http://arrs.magic:5055)
+Front-end to Radarr (movies) and Sonarr (tv).
+Seer requires Jellyfin
+
+
+# Settings for Apps
+The table below contains common settings. `Show Advanced` is necessary, and don't forget to save.
+| Setting | Value |
+|-------------------------------------|-----------------------------|
+| Rename Media File: | Yes |
+| Replace Illegal Characters: | Yes |
+| Colon Replacement: | Replace with Space Dash |
+| Create empty media folders: | No |
+| Delete empty folders: | Yes |
+| Skip Free Space Check: | No |
+| Minimum Free Space: | 10000 |
+| **Use Hardlinks instead of Copy:** | **Yes** |
+| Import Using Script: | Optional |
+| Import Extra Files: | Optional |
+| Unmonitor Deleted Media: | Optional |
+| Propers and Repacks: | Prefer and Upgrade |
+| Rescan Media Folder after Refresh: | Always |
+| Set Permissions: | Yes |
+| Chmod Folder: | 775 |
+
+## Application File Naming
+Radarr
+- Movie Naming
+Standard Movie Format: `{Movie CleanTitle} {(Release Year)} {Edition-{Edition Tags}} - [{Quality Full}, {MediaInfo VideoCodec}, {Mediainfo AudioCodec}]{-Release Group}`
+- Movie Folder Format:`{Movie CleanTitle} {(Release Year)} [tmdb-{TmdbId}]`
+
+Sonarr - TV / Anime Naming:
+- Standard Episode Format: `{Series CleanTitle} ({Series Year}) - S{season:00}E{episode:00} - {Episode CleanTitle} - [{Quality Full}, {MediaInfo VideoCodec}, {Mediainfo AudioCodec}]{-Release Group}`
+- Daily Episode Format: `{Series CleanTitle} ({Series Year}) - {Air-Date} - {Episode CleanTitle} - [{Quality Full}, {MediaInfo VideoCodec}, {Mediainfo AudioCodec}]{-Release Group}`
+- Anime Episode Format: `{Series CleanTitle} ({Series Year}) - S{season:00}E{episode:00} - {Episode CleanTitle} - [{Quality Full}, {MediaInfo VideoCodec}, {Mediainfo AudioCodec}]{-Release Group}`
+- Series Folder Format: `{Series CleanTitle} ({Series Year}) [tmdb-{TmdbId}]`
+- Season Folder Format: `Season {season:00}`
+- Specials Folder Format: `Specials`
+- Multi Episode Style: `Prefixed Range`
+
+Lidarr - Music Naming:
+- Standard Track Format: `{Album CleanTitle} ({Release Year})/{Artist CleanName} - {Album CleanTitle} - {track:000} - {Track CleanTitle} - [{MediaInfo AudioCodec}, {MediaInfo AudioChannels}, {MediaInfo AudioBitRate}, {MediaInfo AudioSampleRate}, {MediaInfo AudioBitsPerSample}]{-Release Group}`
+- Multi Disk Track Format: `{Album CleanTitle} ({Release Year})/{Artist CleanName} - {Album CleanTitle} {Medium Format} {medium:00} - {track:000} - {Track CleanTitle} - [{MediaInfo AudioCodec}, {MediaInfo AudioChannels}, {MediaInfo AudioBitRate}, {MediaInfo AudioSampleRate}, {MediaInfo AudioBitsPerSample}]{-Release Group}`
+- Artist Folder Format: `{Artist CleanName} (mbid-{Artist MbId})`
+
+Mylar3 - Comic Naming:
+- Folder Format: `$Series ($Year)`
+- File Format: `$Series $Annual $Issue ($Year)`
+
+Readarr - ePub Naming:
+- Standard Book Format: `{Book CleanTitle} ({Release Year})/{Author CleanName} - {Book CleanTitle}{ - Part (PartNumber:00)}{-Release Group}`
+- Author Folder Format: `{Author CleanName}`
+
+
+# TODOs
+- configure apps programatically
+- GPU passthrough 
+- Terraform and ansible?
+- [Bazarr providers](http://arrs.magic:6767/settings/providers)
+
+### Configure others?
+- ddns-updater
+- tailscale/cloudflare?
+  - To what do external users need access?
+    - Seerr, probably just that
+- [Calibre Content Server](https://manual.calibre-ebook.com/server.html) for Readarr? See https://github.com/AdrienPoupa/docker-compose-nas/blob/ee9d034b1ea0624ba1f66ea9da144ce0c98ef349/docker-compose.yml#L406
+
+### Configure [Dispatcharr](https://dispatcharr.github.io/Dispatcharr-Docs/)
 
 
 
+# References and citations
+- https://github.com/AdrienPoupa/docker-compose-nas
+- https://github.com/geekau/mediastack
+- https://github.com/geekau/mediastack-guide

@@ -1,29 +1,6 @@
 version: "3.7"
 
 services:
-###########################################################################
-###########################################################################
-##
-##    Docker Compose File: Authelia (Authelia)
-##    Function: Multi-factor authentication portal for your Apps
-##
-##    Documentation: https://hub.docker.com/r/authelia/authelia
-##    https://www.authelia.com/integration/prologue/get-started/
-##    https://www.linuxserver.io/blog/zero-trust-hosting-and-reverse-proxy-via-cloudflare-swag-and-authelia
-##
-###########################################################################
-###########################################################################
-  authelia:
-    image: ghcr.io/authelia/authelia:latest
-    container_name: authelia
-    volumes:
-      - ${FOLDER_FOR_CONFIGS:?err}/authelia:/config
-    environment:
-      - PUID=${PUID:?err}
-      - PGID=${PGID:?err}
-      - UMASK=${UMASK:?err}
-      - TZ=${TIMEZONE:?err}
-    restart: unless-stopped
 
 ###########################################################################
 ###########################################################################
@@ -50,7 +27,10 @@ services:
       - TZ=${TIMEZONE:?err}
       - DOCKER_MODS=ghcr.io/gilbn/theme.park:bazarr
       - TP_THEME=${TP_THEME:?err}
-
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:6767/ping"]
+      interval: 1m
+      retries: 10
 
 ###########################################################################
 ###########################################################################
@@ -70,7 +50,10 @@ services:
 
     ports:
       - "${BYPARR_PORT:?err}:8191"
-
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:8191"]
+      interval: 1m
+      retries: 10
 
 ###########################################################################
 ###########################################################################
@@ -89,7 +72,7 @@ services:
     volumes:
       - ${FOLDER_FOR_CONFIGS:?err}/ddns-updater:/updater/data
     ports:
-      - ${WEBUI_PORT_DDNS_UPDATER:?err}:${WEBUI_PORT_DDNS_UPDATER:?err}/tcp
+      - ${WEBUI_PORT_DDNS_UPDATER:?err}:6500/tcp
     environment:
       - PUID=${PUID:?err}
       - PGID=${PGID:?err}
@@ -107,7 +90,7 @@ services:
       - HTTP_TIMEOUT=10s
 
       # Web UI
-      - LISTENING_PORT=${WEBUI_PORT_DDNS_UPDATER:?err}
+      - LISTENING_PORT=6500
       - ROOT_URL=/
 
       # Backup
@@ -118,30 +101,35 @@ services:
       - LOG_LEVEL=info
       - LOG_CALLER=hidden
       - SHOUTRRR_ADDRESSES=
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:6500"]
+      interval: 1m
+      retries: 10
+###########################################################################
+###########################################################################
+##
+##    Docker Compose File: Homarr
+##    Function: Homepage
+##
+##    Documentation: https://homarr.dev/docs/getting-started/
+##
+###########################################################################
+###########################################################################
 
-
-###########################################################################
-###########################################################################
-##
-##    Docker Compose File: Heimdall (LinuxServer.io)
-##    Function: Organise links to web sites and web applications
-##
-##    Documentation: https://docs.linuxserver.io/images/docker-heimdall
-##    https://docs.linuxserver.io/general/swag#using-heimdall-as-the-home-page-at-domain-root
-##
-###########################################################################
-###########################################################################
-  heimdall:
-    image: lscr.io/linuxserver/heimdall:latest
-    container_name: heimdall
+  homarr:
+    container_name: homarr
+    image: ghcr.io/homarr-labs/homarr:latest
     restart: unless-stopped
     volumes:
-      - ${FOLDER_FOR_CONFIGS:?err}/heimdall:/config
+      - ${FOLDER_FOR_CONFIGS:?err}/homarr:/appdata
     environment:
-      - PUID=${PUID:?err}
-      - PGID=${PGID:?err}
-      - UMASK=${UMASK:?err}
-      - TZ=${TIMEZONE:?err}      
+      - SECRET_ENCRYPTION_KEY=193cd33a82cc5f02233ab1b995320cf1826a9a50c648a17306622ff58115239a
+    ports:
+      - ${WEBUI_PORT_HOMARR:?err}:7575
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:7575"]
+      interval: 1m
+      retries: 10
 
 ###########################################################################
 ###########################################################################
@@ -169,6 +157,47 @@ services:
     ports:
       - ${WEBUI_PORT_JACKETT:?err}:9117
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:9117/"]
+      interval: 1m
+      retries: 10
+
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Jellyfin (LinuxServer.io)
+##  Function: Media Server
+##
+##  Documentation: https://jellyfin.org/docs/general/administration/installing#docker
+##  https://jellyfin.org/docs/general/administration/hardware-acceleration/
+##
+###########################################################################
+###########################################################################
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+# Add Configurations for GPU Hardware Rendering Here:
+#    devices:
+#      - /dev/dri/renderD128:/dev/dri/renderD128
+#      - /dev/dri/card0:/dev/dri/card0
+    volumes:
+      - ${FOLDER_FOR_MEDIA:?err}:/data/media
+      - ${FOLDER_FOR_CONFIGS:?err}/jellyfin:/config
+    environment:
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - UMASK=${UMASK:?err}
+      - TZ=${TIMEZONE:?err}
+#      - JELLYFIN_PublishedServerUrl=${LOCAL_DOCKER_IP:?err}  # Enable for DLNA - Only works on HOST Network Mode
+    ports:
+      - "${WEBUI_PORT_JELLYFIN:?err}:8096"
+      - "${JELLYFIN_PORT_UDP:?err}:7359/udp"
+      #- "1900:1900/udp" # TODO, required?
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:8096/health"]
+      interval: 1m
+      retries: 10
 
 ###########################################################################
 ###########################################################################
@@ -186,7 +215,7 @@ services:
     restart: unless-stopped
     volumes:
       - ${FOLDER_FOR_CONFIGS:?err}/lidarr:/config
-      - ${FOLDER_FOR_MEDIA:?err}:/data
+      - ${FOLDER_FOR_MEDIA:?err}/book:/books
     ports:
       - "${WEBUI_PORT_LIDARR:?err}:8686"
     environment:
@@ -195,6 +224,10 @@ services:
       - TZ=${TIMEZONE:?err}
       - DOCKER_MODS=ghcr.io/gilbn/theme.park:lidarr
       - TP_THEME=${TP_THEME:?err}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:8686/ping"]
+      interval: 1m
+      retries: 10
 
 ###########################################################################
 ###########################################################################
@@ -221,7 +254,10 @@ services:
       - TZ=${TIMEZONE:?err}
       - DOCKER_MODS=ghcr.io/gilbn/theme.park:mylar3
       - TP_THEME=${TP_THEME:?err}
-
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:8090/"]
+      interval: 1m
+      retries: 10     
 ###########################################################################
 ###########################################################################
 ##
@@ -246,6 +282,10 @@ services:
       - TZ=${TIMEZONE:?err}
       - DOCKER_MODS=ghcr.io/gilbn/theme.park:prowlarr
       - TP_THEME=${TP_THEME:?err}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:9696/ping"]
+      interval: 1m
+      retries: 10      
 
 ###########################################################################
 ###########################################################################
@@ -264,6 +304,7 @@ services:
     volumes:
       - ${FOLDER_FOR_CONFIGS:?err}:/config
       - ${FOLDER_FOR_MEDIA:?err}:/data
+      - ${FOLDER_FOR_INCOMPLETE:?err}/torrent:/incomplete
     environment:
       - PUID=${PUID:?err}
       - PGID=${PGID:?err}
@@ -277,6 +318,11 @@ services:
       - "${WEBUI_PORT_QBITTORRENT:?err}:8080"
       - "${QBIT_PORT_TCP:?err}:6881"
       - "${QBIT_PORT_UDP:?err}:6881/udp"
+    healthcheck:
+      test:
+        ["CMD", "curl", "--fail", "http://127.0.0.1:8080"]
+      interval: 1m
+      retries: 10      
 
 ###########################################################################
 ###########################################################################
@@ -303,6 +349,10 @@ services:
       - TZ=${TIMEZONE:?err}
       - DOCKER_MODS=ghcr.io/gilbn/theme.park:radarr
       - TP_THEME=${TP_THEME:?err}      
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:7878/ping"]
+      interval: 1m
+      retries: 10
 
 ###########################################################################
 ###########################################################################
@@ -325,9 +375,12 @@ services:
       - ${FOLDER_FOR_CONFIGS:?err}/readarr:/config
       - ${FOLDER_FOR_MEDIA:?err}:/books
     ports:
-      - "${WEBUI_PORT_BOOKSHELF:?err}:8787"
+      - "${WEBUI_PORT_READARR:?err}:8787"
     restart: unless-stopped
-
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:8787/ping"]
+      interval: 1m
+      retries: 10
 
 ###########################################################################
 ###########################################################################
@@ -346,6 +399,7 @@ services:
     volumes:
       - ${FOLDER_FOR_CONFIGS:?err}/sabnzbd:/config
       - ${FOLDER_FOR_MEDIA:?err}:/data
+      - ${FOLDER_FOR_INCOMPLETE:?err}/usenet:/incomplete
     ports:
       - "${WEBUI_PORT_SABNZBD:?err}:8080"
     environment:
@@ -354,6 +408,45 @@ services:
       - TZ=${TIMEZONE:?err}
       - DOCKER_MODS=ghcr.io/gilbn/theme.park:sabnzbd
       - TP_THEME=${TP_THEME:?err}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:8080"]
+      interval: 1m
+      retries: 10
+
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: Seerr (https://github.com/seerr-team/seerr/blob/develop/docs/getting-started/docker.mdx)
+##  Function: Front-end for Radarr/Sonarr
+##
+##  Documentation: https://github.com/seerr-team/seerr
+##
+###########################################################################
+###########################################################################
+
+  seerr:
+    image: ghcr.io/seerr-team/seerr:develop
+    init: true
+    container_name: seerr
+    environment:
+      - LOG_LEVEL=debug
+      - TZ=${TIMEZONE:?err}
+    ports:
+      - "${WEBUI_PORT_SEERR:?err}:5055"
+    volumes:
+      - ${FOLDER_FOR_CONFIGS:?err}/seerr:/app/config
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "http://127.0.0.1:5055/api/v1/status",
+          "-qO",
+          "/dev/null",
+        ]
+      interval: 1m
+      retries: 10    
 
 ###########################################################################
 ###########################################################################
@@ -380,3 +473,7 @@ services:
       - TZ=${TIMEZONE:?err}
       - DOCKER_MODS=ghcr.io/gilbn/theme.park:sonarr
       - TP_THEME=${TP_THEME:?err}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:8989/ping"]
+      interval: 1m
+      retries: 10
