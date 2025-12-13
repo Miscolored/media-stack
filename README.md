@@ -100,6 +100,11 @@ echo "0 3 * * 0 root rsync -az $FOLDER_FOR_CONFIGS $FOLDER_FOR_ARCHIVE" | sudo t
 
 Of cource, you can manually create a backup by running the `rsync` command, which you should do following deployment, configuration of the `media-stack`.
 
+*** ___If you have to redploy the VM, you will need to manually copy `$FOLDER_FOR_ARCHIVE` back to `$FOLDER_FOR_CONFIGS`___ ***
+
+# Configure LXC for Jellyfin and Seerr
+lxc-create --name seerr --template=oci -- --url docker://ghcr.io/seerr-team/seerr:develop
+
 # Configure Stacks
 1. Install docker
 1. Add portainer
@@ -171,6 +176,7 @@ This will make navigation to each of the apps so much easier.
 |Lidarr|http://arrs.magic:8686|
 |Mylar|http://arrs.magic:8090|
 |Portainer|http://arrs.magic:9443|
+|Pinchflat|http://arrs.magic:8945|
 |Prowlarr|http://arrs.magic:9696|
 |Radarr|http://arrs.magic:7878|
 |Readerr|http://arrs.magic:8787|
@@ -360,6 +366,7 @@ For some reason, the download clients _are not_ synced from prowlarr to the arr 
 1. [Lidarr](http://arrs.magic:8686), [Radarr](http://arrs.magic:7878), [Readarr](http://arrs.magic:8787), [Sonarr](http://arrs.magic:8989)
    1. Copy steps for adding download clients to Prowlarr. Pay attention to the default Category each app provides, they should be: music, movies, books, tv; respectively.
 
+1. Mylar was configured previously.
 
 ## Other Servers Configuration
 
@@ -441,13 +448,35 @@ Subtitles for Movies and TV.
       1. Bazarr `/data/`
    1. Save
 
-### Configure [Seerr](http://arrs.magic:5055)
-Front-end to Radarr (movies) and Sonarr (tv).
-Seer requires Jellyfin
+
+### Configure [Pinchflat](http://arrs.media:8945)
+1. \+ New Media Profile
+   1. Use a Preset:  Media Center
+   1. Name: Media Center
+   1. Output path template:
+   1. Subtitle Options → Download Subtitles: true
+   1. Thumbnail Options → Download: true, Embed: true
+   1. Metadata Options → Download: true, Embed: true
+   1. Release Format Options → Shorts: Exclude, Livestreams: Exclude
+   1. Quality Options → 1080p
+   1. Media Center Options → Download NFO: true, Download Series: true
+   1. SponsorBlock Options → Sponsor: true, Outro/Credits: true, Interaction Reminder: true, Self Promotion: true
+   1. Save Media profile
+1. Populate `/config/extras/cookies.txt
+   1. **TODO**
+1. \+ New Source
+   1. General Options: channel URL or playlist URL
+   1. Custom Name
+   1. Downloading Options → Download Media: true, Cookie Behavior: `All Operations`
+   1. Save Source
+1. Let's Go
+1. Config → Settings → Extractor Settings: Restrict Filenames: true, Sleep Interval: 30
+1. Setup cookies
+
 
 
 # Settings for Apps
-The table below contains common settings. `Show Advanced` is necessary, and don't forget to save.
+The table below contains common settings for Lidarr, Radarr, Readarr, and Sonarr. `Show Advanced` is necessary, and don't forget to save.
 | Setting | Value |
 |-------------------------------------|-----------------------------|
 | Rename Media File: | Yes |
@@ -500,7 +529,8 @@ Readarr - ePub Naming:
 - GPU passthrough 
 - Terraform and ansible?
 - [Bazarr providers](http://arrs.magic:6767/settings/providers)
-
+- [Pinchflat cookies instructions](http://arrs.magic:8945/)
+- 
 ### Configure others?
 - ddns-updater
 - tailscale/cloudflare?
@@ -509,7 +539,6 @@ Readarr - ePub Naming:
 - [Calibre Content Server](https://manual.calibre-ebook.com/server.html) for Readarr? See https://github.com/AdrienPoupa/docker-compose-nas/blob/ee9d034b1ea0624ba1f66ea9da144ce0c98ef349/docker-compose.yml#L406
 
 ### Configure [Dispatcharr](https://dispatcharr.github.io/Dispatcharr-Docs/)
-
 
 
 # References and citations

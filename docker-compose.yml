@@ -58,56 +58,6 @@ services:
 ###########################################################################
 ###########################################################################
 ##
-##    Docker Compose File: DDNS-Updater (qmcgaw)
-##    Function: Update Dynamic IP addresses for DNS A and/or AAAA records
-##
-##    Documentation: https://hub.docker.com/r/qmcgaw/ddns-updater
-##
-###########################################################################
-###########################################################################
-  ddns-updater:
-    image: qmcgaw/ddns-updater:latest
-    container_name: ddns-updater
-    restart: always
-    volumes:
-      - ${FOLDER_FOR_CONFIGS:?err}/ddns-updater:/updater/data
-    ports:
-      - ${WEBUI_PORT_DDNS_UPDATER:?err}:6500/tcp
-    environment:
-      - PUID=${PUID:?err}
-      - PGID=${PGID:?err}
-      - UMASK=${UMASK:?err}
-      - TZ=${TIMEZONE:?err}
-      - CONFIG=
-      - PERIOD=5m
-      - UPDATE_COOLDOWN_PERIOD=5m
-      - PUBLICIP_FETCHERS=all
-      - PUBLICIP_HTTP_PROVIDERS=all
-      - PUBLICIPV4_HTTP_PROVIDERS=all
-      - PUBLICIPV6_HTTP_PROVIDERS=all
-      - PUBLICIP_DNS_PROVIDERS=all
-      - PUBLICIP_DNS_TIMEOUT=3s
-      - HTTP_TIMEOUT=10s
-
-      # Web UI
-      - LISTENING_PORT=6500
-      - ROOT_URL=/
-
-      # Backup
-      - BACKUP_PERIOD=0 # 0 to disable
-      - BACKUP_DIRECTORY=/updater/data
-
-      # Other
-      - LOG_LEVEL=info
-      - LOG_CALLER=hidden
-      - SHOUTRRR_ADDRESSES=
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://127.0.0.1:6500"]
-      interval: 1m
-      retries: 10
-###########################################################################
-###########################################################################
-##
 ##    Docker Compose File: Homarr
 ##    Function: Homepage
 ##
@@ -127,7 +77,7 @@ services:
     ports:
       - ${WEBUI_PORT_HOMARR:?err}:7575
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://127.0.0.1:7575"]
+      test: ["CMD", "wget", "http://127.0.0.1:7575", "-O", "/dev/null"]
       interval: 1m
       retries: 10
 
@@ -159,43 +109,6 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://127.0.0.1:9117/"]
-      interval: 1m
-      retries: 10
-
-###########################################################################
-###########################################################################
-##
-##  Docker Compose File: Jellyfin (LinuxServer.io)
-##  Function: Media Server
-##
-##  Documentation: https://jellyfin.org/docs/general/administration/installing#docker
-##  https://jellyfin.org/docs/general/administration/hardware-acceleration/
-##
-###########################################################################
-###########################################################################
-  jellyfin:
-    image: lscr.io/linuxserver/jellyfin:latest
-    container_name: jellyfin
-    restart: unless-stopped
-# Add Configurations for GPU Hardware Rendering Here:
-#    devices:
-#      - /dev/dri/renderD128:/dev/dri/renderD128
-#      - /dev/dri/card0:/dev/dri/card0
-    volumes:
-      - ${FOLDER_FOR_MEDIA:?err}:/data/media
-      - ${FOLDER_FOR_CONFIGS:?err}/jellyfin:/config
-    environment:
-      - PUID=${PUID:?err}
-      - PGID=${PGID:?err}
-      - UMASK=${UMASK:?err}
-      - TZ=${TIMEZONE:?err}
-#      - JELLYFIN_PublishedServerUrl=${LOCAL_DOCKER_IP:?err}  # Enable for DLNA - Only works on HOST Network Mode
-    ports:
-      - "${WEBUI_PORT_JELLYFIN:?err}:8096"
-      - "${JELLYFIN_PORT_UDP:?err}:7359/udp"
-      #- "1900:1900/udp" # TODO, required?
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://127.0.0.1:8096/health"]
       interval: 1m
       retries: 10
 
@@ -261,6 +174,34 @@ services:
 ###########################################################################
 ###########################################################################
 ##
+##  Docker Compose File: Pinchflat (https://github.com/kieraneglin/pinchflat?tab=readme-ov-file#portainer)
+##  Function: YT video content obtainer
+##
+##  Documentation: https://github.com/kieraneglin/pinchflat/wiki
+##
+###########################################################################
+###########################################################################
+  pinchflat:
+    image: ghcr.io/kieraneglin/pinchflat:latest
+    container_name: pinchflat
+    restart: unless-stopped
+    volumes:
+      - ${FOLDER_FOR_CONFIGS:?err}/pinchflat:/config
+      - ${FOLDER_FOR_MEDIA:?err}:/downloads
+    ports:
+      - "${WEBUI_PORT_PINCHFLAT:?err}:8945"
+    environment:
+      - PUID=${PUID:?err}
+      - PGID=${PGID:?err}
+      - TZ=${TIMEZONE:?err}
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:8945/"]
+      interval: 1m
+      retries: 10        
+
+###########################################################################
+###########################################################################
+##
 ##  Docker Compose File: Prowlarr (LinuxServer.io)
 ##  Function: Indexer and Search Manager
 ##
@@ -285,8 +226,7 @@ services:
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://127.0.0.1:9696/ping"]
       interval: 1m
-      retries: 10      
-
+      retries: 10    
 ###########################################################################
 ###########################################################################
 ##
@@ -413,40 +353,6 @@ services:
       interval: 1m
       retries: 10
 
-###########################################################################
-###########################################################################
-##
-##  Docker Compose File: Seerr (https://github.com/seerr-team/seerr/blob/develop/docs/getting-started/docker.mdx)
-##  Function: Front-end for Radarr/Sonarr
-##
-##  Documentation: https://github.com/seerr-team/seerr
-##
-###########################################################################
-###########################################################################
-
-  seerr:
-    image: ghcr.io/seerr-team/seerr:develop
-    init: true
-    container_name: seerr
-    environment:
-      - LOG_LEVEL=debug
-      - TZ=${TIMEZONE:?err}
-    ports:
-      - "${WEBUI_PORT_SEERR:?err}:5055"
-    volumes:
-      - ${FOLDER_FOR_CONFIGS:?err}/seerr:/app/config
-    restart: unless-stopped
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "http://127.0.0.1:5055/api/v1/status",
-          "-qO",
-          "/dev/null",
-        ]
-      interval: 1m
-      retries: 10    
 
 ###########################################################################
 ###########################################################################
