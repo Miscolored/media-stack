@@ -152,7 +152,10 @@ Create a new Stack in Portainer where all the capability apps will run.
 
 1. Name: media-stack
 1. Build methodSelect Upload: select docker-compose.yml
-1. Environment variables: upload media-stack.env
+1. Environment variables: 
+   1. ___UPDATE___ media-stack-sensitive.env
+   1. __Take Care not to share the file__ if updating anything in Secrets section.
+   1. upload media-stack.env
 1. `Deploy the stack`
 1. Once deployed, the initial admin password for each app from the container logs.
 
