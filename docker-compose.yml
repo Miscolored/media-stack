@@ -1,7 +1,17 @@
 version: "3.7"
 
 services:
-
+  zap2xml:
+    image: shuaiscott/zap2xml:latest
+    container_name: zap2xml
+    restart: unless-stopped
+    volumes:
+        - ${FOLDER_FOR_MEDIA:?err}/xmltvdata:/data
+    environment:
+        - USERNAME=${GRACENOTE_EMAIL:?err}
+        - PASSWORD=${GRACENOTE_PASSWORD:?err}
+        - OPT_ARGS=-I -D
+        - XMLTV_FILENAME=xmltv.xml
 ###########################################################################
 ###########################################################################
 ##
@@ -171,33 +181,6 @@ services:
       test: ["CMD", "curl", "--fail", "http://127.0.0.1:8090/"]
       interval: 1m
       retries: 10     
-###########################################################################
-###########################################################################
-##
-##  Docker Compose File: Pinchflat (https://github.com/kieraneglin/pinchflat?tab=readme-ov-file#portainer)
-##  Function: YT video content obtainer
-##
-##  Documentation: https://github.com/kieraneglin/pinchflat/wiki
-##
-###########################################################################
-###########################################################################
-  pinchflat:
-    image: ghcr.io/kieraneglin/pinchflat:latest
-    container_name: pinchflat
-    restart: unless-stopped
-    volumes:
-      - ${FOLDER_FOR_CONFIGS:?err}/pinchflat:/config
-      - ${FOLDER_FOR_MEDIA:?err}:/downloads
-    ports:
-      - "${WEBUI_PORT_PINCHFLAT:?err}:8945"
-    environment:
-      - PUID=${PUID:?err}
-      - PGID=${PGID:?err}
-      - TZ=${TIMEZONE:?err}
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://127.0.0.1:8945/"]
-      interval: 1m
-      retries: 10        
 
 ###########################################################################
 ###########################################################################
@@ -227,6 +210,7 @@ services:
       test: ["CMD", "curl", "--fail", "http://127.0.0.1:9696/ping"]
       interval: 1m
       retries: 10    
+
 ###########################################################################
 ###########################################################################
 ##
@@ -384,3 +368,29 @@ services:
       test: ["CMD", "curl", "--fail", "http://127.0.0.1:8989/ping"]
       interval: 1m
       retries: 10
+
+###########################################################################
+###########################################################################
+##
+##  Docker Compose File: YTPTube
+##  Function: Series Video Platform Downloader
+##
+##  Documentation: https://github.com/ArabCoders/ytptube
+##
+###########################################################################
+###########################################################################
+  ytptube:
+    user: "${UID:?err}:${UID:?err}" # change this to your user id and group id, for example: "1000:1000"
+    image: ghcr.io/arabcoders/ytptube:latest
+    container_name: ytptube
+    restart: unless-stopped
+    volumes:
+      - ${FOLDER_FOR_CONFIGS:?err}/ytptube/:/config
+      - ${FOLDER_FOR_MEDIA:?err}/youtube:/downloads
+    ports:
+      - "${WEBUI_PORT_YTPTUBE:?err}:8081"
+    environment:
+      - TYP_BROWSER_CONTROL_ENABLED=true
+      - C
+    tmpfs:
+      - /tmp

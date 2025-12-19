@@ -452,6 +452,15 @@ Subtitles for Movies and TV.
    1. Save
 
 
+### Configure [YTPTube](http://arrs.media:8945)
+ 1. Urls: Channel/Playlist URL
+ 1. Preset: NFO Maker TV
+ 1. Save in: `.`
+ 1. Output template: `/%(channel)s/%(title)s.%(ext)s`
+ 1. *\>_Command options for yt-dlp*: `--cookies /config/cookies.txt --sleep-interval 2 --sleep-requests 2 --restrict-filenames`
+ 1. Save cookies to arrs.magic:` /opt/media-stack/ytptube/cookies.txt`
+ 1. **\+Add**
+
 ### Configure [Pinchflat](http://arrs.media:8945)
 1. \+ New Media Profile
    1. Use a Preset:  Media Center
